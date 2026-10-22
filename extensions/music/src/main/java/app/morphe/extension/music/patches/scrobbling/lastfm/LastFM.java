@@ -24,18 +24,15 @@ import java.util.List;
 import java.util.Map;
 
 import app.morphe.extension.music.patches.scrobbling.ScrobbleManager;
+import app.morphe.extension.music.patches.scrobbling.ScrobbleQueue;
 import app.morphe.extension.music.settings.Settings;
 import app.morphe.extension.shared.Logger;
 import app.morphe.extension.shared.Utils;
 import app.morphe.extension.shared.requests.Requester;
 
 public class LastFM {
-    private static final String BASE_URL = "https://ws.audioscrobbler.com/2.0/";
     private static final String USER_AGENT = "Morphe/" + Utils.getPatchesReleaseVersion()
             + " (YTMusic/" + Utils.getAppVersionName() + ")";
-
-    public static final String API_KEY = "986d00852eea80eda8b2930e0abf5c46";
-    public static final String SECRET = "1d802c749ccec53103400582fcaebd01";
 
     private static final Map<String, CacheEntry> albumCache = Collections.synchronizedMap(
             Utils.createSizeRestrictedMap(20));
@@ -85,7 +82,7 @@ public class LastFM {
         for (String key : sortedKeys) {
             sb.append(key).append(params.get(key));
         }
-        sb.append(SECRET);
+        sb.append(Settings.LASTFM_API_SECRET.get());
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] digest = md.digest(sb.toString().getBytes(StandardCharsets.UTF_8));
@@ -122,7 +119,7 @@ public class LastFM {
 
         byte[] postDataBytes = postData.toString().getBytes(StandardCharsets.UTF_8);
 
-        HttpURLConnection conn = Requester.openConnection(BASE_URL);
+        HttpURLConnection conn = Requester.openConnection(Settings.LASTFM_BASE_URL.get());
         conn.setRequestMethod("POST");
         conn.setRequestProperty("User-Agent", USER_AGENT);
         conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
@@ -178,7 +175,8 @@ public class LastFM {
 
     @Nullable
     private static String fetchAlbumNetwork(String artist, String track) throws Exception {
-        String url = BASE_URL + "?method=track.getInfo&api_key=" + URLEncoder.encode(API_KEY, "UTF-8")
+        String url = Settings.LASTFM_BASE_URL.get()
+                + "?method=track.getInfo&api_key=" + URLEncoder.encode(Settings.LASTFM_API_KEY.get(), "UTF-8")
                 + "&artist=" + URLEncoder.encode(artist, "UTF-8")
                 + "&track=" + URLEncoder.encode(track, "UTF-8")
                 + "&autocorrect=1&format=json";
@@ -207,7 +205,7 @@ public class LastFM {
     public static Session getMobileSession(String username, String password) throws Exception {
         Map<String, String> params = new HashMap<>();
         params.put("method", "auth.getMobileSession");
-        params.put("api_key", API_KEY);
+        params.put("api_key", Settings.LASTFM_API_KEY.get());
         params.put("username", username);
         params.put("password", password);
 
@@ -231,7 +229,7 @@ public class LastFM {
                 String effectiveAlbum = ScrobbleManager.getEffectiveAlbum(artist, track, album);
                 Map<String, String> params = new HashMap<>();
                 params.put("method", "track.updateNowPlaying");
-                params.put("api_key", API_KEY);
+                params.put("api_key", Settings.LASTFM_API_KEY.get());
                 params.put("sk", sessionKey);
                 params.put("artist", artist);
                 params.put("track", track);
@@ -253,74 +251,112 @@ public class LastFM {
         });
     }
 
-    private static void logScrobbleResponse(String jsonResponse, String artist, String track) {
-        try {
-            JSONObject root = new JSONObject(jsonResponse);
-            if (root.has("scrobbles")) {
-                JSONObject scrobbles = root.getJSONObject("scrobbles");
-                JSONObject attr = scrobbles.optJSONObject("@attr");
-                @SuppressWarnings("unused")
-                int accepted = attr != null ? attr.optInt("accepted", 0) : 0;
-                int ignored = attr != null ? attr.optInt("ignored", 0) : 0;
-
-                if (ignored > 0) {
-                    String ignoredMsg = "Unknown reason";
-                    if (scrobbles.has("scrobble")) {
-                        Object scrobbleObj = scrobbles.get("scrobble");
-                        JSONObject scrobble = null;
-                        if (scrobbleObj instanceof JSONObject) {
-                            scrobble = (JSONObject) scrobbleObj;
-                        } else if (scrobbleObj instanceof JSONArray scrobbleArray) {
-                            if (scrobbleArray.length() > 0) {
-                                scrobble = scrobbleArray.optJSONObject(0);
-                            }
-                        }
-                        if (scrobble != null && scrobble.has("ignoredMessage")) {
-                            JSONObject msgObj = scrobble.getJSONObject("ignoredMessage");
-                            ignoredMsg = msgObj.optString("#text", "Code " + msgObj.optString("code"));
-                        }
-                    }
-                    final String finalIgnoredMsg = ignoredMsg;
-                    Logger.printInfo(() -> "Last.fm: Scrobble ignored for " + artist + " - " + track + ". Reason: " + finalIgnoredMsg);
-                } else {
-                    Logger.printDebug(() -> "Last.fm: Scrobbled track: " + artist + " - " + track + " (accepted)");
-                }
-            } else {
-                Logger.printDebug(() -> "Last.fm: Scrobbled track (raw response): " + jsonResponse);
-            }
-        } catch (Exception ex) {
-            Logger.printException(() -> "Last.fm: Failed to parse scrobble response: " + jsonResponse, ex);
-        }
-    }
+    /**
+     * Maximum number of tracks Last.fm accepts in a single track.scrobble request
+     * (the indexed artist[0..49], track[0..49], ... parameters).
+     */
+    public static final int MAX_BATCH_SIZE = 50;
 
     public static void scrobble(String sessionKey, String artist, String track, String album, Integer duration, long timestamp) {
         if (sessionKey == null || sessionKey.isBlank()) return;
         ScrobbleManager.getInstance().runOnBackgroundThread(() -> {
-            try {
-                String effectiveAlbum = ScrobbleManager.getEffectiveAlbum(artist, track, album);
-                Map<String, String> params = new HashMap<>();
-                params.put("method", "track.scrobble");
-                params.put("api_key", API_KEY);
-                params.put("sk", sessionKey);
-                params.put("artist[0]", artist);
-                params.put("track[0]", track);
-                params.put("timestamp[0]", String.valueOf(timestamp));
-                if (effectiveAlbum != null && !effectiveAlbum.isBlank()) params.put("album[0]", effectiveAlbum);
-                if (duration != null && duration > 0) params.put("duration[0]", String.valueOf(duration));
+            ScrobbleQueue.Entry entry = new ScrobbleQueue.Entry();
+            entry.artist = artist;
+            entry.track = track;
+            entry.album = album;
+            entry.duration = duration == null ? 0 : duration;
+            entry.timestamp = timestamp;
 
-                String response = executePostRequest(params);
-                logScrobbleResponse(response, artist, track);
-            } catch (LastFMApiException ex) {
-                Logger.printException(() -> "Last.fm API error during scrobble", ex);
-                if (ex.getErrorCode() == 9) {
-                    Logger.printInfo(() -> "Last.fm: Session key is invalid. Logging out.");
-                    Settings.LASTFM_SESSION_KEY.resetToDefault();
-                    Settings.LASTFM_USERNAME.resetToDefault();
-                }
-            } catch (Exception ex) {
-                Logger.printException(() -> "Failed to scrobble track", ex);
+            boolean[] retry = scrobbleBatchSync(sessionKey, List.of(entry));
+            if (retry == null || retry[0]) {
+                ScrobbleQueue.enqueueLastFM(entry);
             }
         });
+    }
+
+    /**
+     * Submits up to {@link #MAX_BATCH_SIZE} scrobbles in a single request.
+     * Must be called from a background thread.
+     *
+     * @return a same-sized array where an element is true if that entry should be retried
+     * later (its timestamp was rejected as not yet valid, so it may succeed once the server's
+     * clock catches up), or null if the whole batch failed to reach the server and everything
+     * in it should be retried.
+     */
+    @Nullable
+    public static boolean[] scrobbleBatchSync(String sessionKey, List<ScrobbleQueue.Entry> entries) {
+        int count = entries.size();
+        try {
+            Map<String, String> params = new HashMap<>();
+            params.put("method", "track.scrobble");
+            params.put("api_key", Settings.LASTFM_API_KEY.get());
+            params.put("sk", sessionKey);
+            for (int i = 0; i < count; i++) {
+                ScrobbleQueue.Entry entry = entries.get(i);
+                String effectiveAlbum = ScrobbleManager.getEffectiveAlbum(entry.artist, entry.track, entry.album);
+                params.put("artist[" + i + "]", entry.artist);
+                params.put("track[" + i + "]", entry.track);
+                params.put("timestamp[" + i + "]", String.valueOf(entry.timestamp));
+                if (effectiveAlbum != null && !effectiveAlbum.isBlank()) params.put("album[" + i + "]", effectiveAlbum);
+                if (entry.duration > 0) params.put("duration[" + i + "]", String.valueOf(entry.duration));
+            }
+
+            String response = executePostRequest(params);
+            return parseBatchResponse(response, count);
+        } catch (LastFMApiException ex) {
+            Logger.printException(() -> "Last.fm API error during batch scrobble", ex);
+            if (ex.getErrorCode() == 9) {
+                Logger.printInfo(() -> "Last.fm: Session key is invalid. Logging out.");
+                Settings.LASTFM_SESSION_KEY.resetToDefault();
+                Settings.LASTFM_USERNAME.resetToDefault();
+            }
+            return new boolean[count]; // rejected by the API, nothing left to retry
+        } catch (Exception ex) {
+            Logger.printException(() -> "Failed to submit scrobble batch", ex);
+            return null; // likely a network issue, retry the whole batch later
+        }
+    }
+
+    /**
+     * @return same-sized array; true where the ignored reason ("timestamp too new", code 4) is
+     * one that time alone can fix. Any other ignored reason (including code 3, "timestamp too
+     * old") will never succeed, so it's left false.
+     */
+    private static boolean[] parseBatchResponse(String jsonResponse, int count) {
+        boolean[] retry = new boolean[count];
+        try {
+            JSONObject root = new JSONObject(jsonResponse);
+            if (!root.has("scrobbles")) {
+                Logger.printDebug(() -> "Last.fm: batch scrobble response (raw): " + jsonResponse);
+                return retry;
+            }
+
+            JSONObject scrobbles = root.getJSONObject("scrobbles");
+            JSONObject attr = scrobbles.optJSONObject("@attr");
+            int accepted = attr != null ? attr.optInt("accepted", 0) : 0;
+            int ignored = attr != null ? attr.optInt("ignored", 0) : 0;
+            Logger.printDebug(() -> "Last.fm: batch scrobble accepted=" + accepted + " ignored=" + ignored);
+
+            JSONArray scrobbleArray = new JSONArray();
+            if (scrobbles.has("scrobble")) {
+                Object scrobbleObj = scrobbles.get("scrobble");
+                if (scrobbleObj instanceof JSONArray array) {
+                    scrobbleArray = array;
+                } else if (scrobbleObj instanceof JSONObject single) {
+                    scrobbleArray.put(single);
+                }
+            }
+
+            for (int i = 0; i < scrobbleArray.length() && i < count; i++) {
+                JSONObject scrobble = scrobbleArray.optJSONObject(i);
+                if (scrobble == null || !scrobble.has("ignoredMessage")) continue;
+                int code = scrobble.getJSONObject("ignoredMessage").optInt("code", -1);
+                retry[i] = code == 4;
+            }
+        } catch (Exception ex) {
+            Logger.printException(() -> "Last.fm: failed to parse batch scrobble response: " + jsonResponse, ex);
+        }
+        return retry;
     }
 
     public static void love(String sessionKey, String artist, String track) {
@@ -329,7 +365,7 @@ public class LastFM {
             try {
                 Map<String, String> params = new HashMap<>();
                 params.put("method", "track.love");
-                params.put("api_key", API_KEY);
+                params.put("api_key", Settings.LASTFM_API_KEY.get());
                 params.put("sk", sessionKey);
                 params.put("artist", artist);
                 params.put("track", track);
@@ -355,7 +391,7 @@ public class LastFM {
             try {
                 Map<String, String> params = new HashMap<>();
                 params.put("method", "track.unlove");
-                params.put("api_key", API_KEY);
+                params.put("api_key", Settings.LASTFM_API_KEY.get());
                 params.put("sk", sessionKey);
                 params.put("artist", artist);
                 params.put("track", track);

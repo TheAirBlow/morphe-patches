@@ -13,15 +13,16 @@ import org.json.JSONObject;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import app.morphe.extension.music.patches.scrobbling.ScrobbleManager;
+import app.morphe.extension.music.patches.scrobbling.ScrobbleQueue;
 import app.morphe.extension.music.settings.Settings;
 import app.morphe.extension.shared.Logger;
 import app.morphe.extension.shared.Utils;
 import app.morphe.extension.shared.requests.Requester;
 
 public class ListenBrainz {
-    private static final String BASE_URL = "https://api.listenbrainz.org/";
     private static final String USER_AGENT = "Morphe/" + Utils.getPatchesReleaseVersion() + " (YTMusic/" + Utils.getAppVersionName() + ")";
     private static final String CLIENT_VERSION = Utils.getPatchesReleaseVersion();
     
@@ -40,7 +41,7 @@ public class ListenBrainz {
         if (token == null || token.isBlank()) {
             throw new IllegalArgumentException("User token is missing or blank");
         }
-        HttpURLConnection conn = Requester.openConnection(BASE_URL + "1/validate-token");
+        HttpURLConnection conn = Requester.openConnection(Settings.LISTENBRAINZ_BASE_URL.get() + "1/validate-token");
         conn.setRequestMethod("GET");
         conn.setRequestProperty("User-Agent", USER_AGENT);
         conn.setRequestProperty("Authorization", "Token " + token);
@@ -65,6 +66,12 @@ public class ListenBrainz {
     }
 
     /**
+     * Maximum number of listens ListenBrainz accepts in a single submit-listens request
+     * (import-type payload array).
+     */
+    public static final int MAX_BATCH_SIZE = 1000;
+
+    /**
      * Submits a scrobble asynchronously on a background thread.
      */
     public static void scrobbleAsync(String artist, String track, long timestamp,
@@ -75,27 +82,53 @@ public class ListenBrainz {
             return;
         }
         ScrobbleManager.getInstance().runOnBackgroundThread(() -> {
-            try {
-                String effectiveAlbum = ScrobbleManager.getEffectiveAlbum(artist, track, album);
-                JSONObject req = new JSONObject();
-                req.put("listen_type", "single");
+            ScrobbleQueue.Entry entry = new ScrobbleQueue.Entry();
+            entry.artist = artist;
+            entry.track = track;
+            entry.album = album;
+            entry.duration = duration;
+            entry.timestamp = timestamp;
+            entry.songId = songId;
 
-                JSONObject payload = new JSONObject();
-                payload.put("listened_at", timestamp);
-                payload.put("track_metadata", createTrackMetadata(artist, track, songId, effectiveAlbum, duration));
-
-                JSONArray payloadArray = new JSONArray();
-                payloadArray.put(payload);
-                req.put("payload", payloadArray);
-
-                String jsonBody = req.toString();
-                if (postRequest("1/submit-listens", token, jsonBody)) {
-                    Logger.printDebug(() -> "Successfully scrobbled: '" + track + "' by: " + artist);
-                }
-            } catch (Exception ex) {
-                Logger.printException(() -> "ListenBrainz scrobble failure", ex);
+            if (!scrobbleBatchSync(token, List.of(entry))) {
+                ScrobbleQueue.enqueueListenBrainz(entry);
             }
         });
+    }
+
+    /**
+     * Submits up to {@link #MAX_BATCH_SIZE} listens in a single request, using the bulk
+     * "import" listen type when there's more than one. ListenBrainz doesn't report per-listen
+     * acceptance, so the whole batch is treated as a single outcome.
+     *
+     * <p>Must be called from a background thread.
+     *
+     * @return true if the batch was submitted or rejected by the server (nothing more to do),
+     * false if it should be retried later, e.g. it failed to even reach the server.
+     */
+    public static boolean scrobbleBatchSync(String token, List<ScrobbleQueue.Entry> entries) {
+        try {
+            JSONArray payloadArray = new JSONArray();
+            for (ScrobbleQueue.Entry entry : entries) {
+                String effectiveAlbum = ScrobbleManager.getEffectiveAlbum(entry.artist, entry.track, entry.album);
+                JSONObject payload = new JSONObject();
+                payload.put("listened_at", entry.timestamp);
+                payload.put("track_metadata", createTrackMetadata(entry.artist, entry.track, entry.songId, effectiveAlbum, entry.duration));
+                payloadArray.put(payload);
+            }
+
+            JSONObject req = new JSONObject();
+            req.put("listen_type", entries.size() > 1 ? "import" : "single");
+            req.put("payload", payloadArray);
+
+            if (postRequest("1/submit-listens", token, req.toString())) {
+                Logger.printDebug(() -> "Successfully scrobbled " + entries.size() + " listen(s)");
+            }
+            return true;
+        } catch (Exception ex) {
+            Logger.printException(() -> "ListenBrainz scrobble failure", ex);
+            return false;
+        }
     }
 
     /**
@@ -157,7 +190,7 @@ public class ListenBrainz {
         Utils.verifyOffMainThread();
         byte[] jsonBodyBytes = jsonBody.getBytes(StandardCharsets.UTF_8);
 
-        HttpURLConnection conn = Requester.openConnection(BASE_URL + path);
+        HttpURLConnection conn = Requester.openConnection(Settings.LISTENBRAINZ_BASE_URL.get() + path);
         conn.setRequestMethod("POST");
         conn.setRequestProperty("User-Agent", USER_AGENT);
         conn.setRequestProperty("Authorization", "Token " + token);

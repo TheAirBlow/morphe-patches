@@ -155,12 +155,16 @@ public class Settings extends SharedYouTubeSettings {
 
     // Scrobbling
     public static final BooleanSetting LISTENBRAINZ_SCROBBLING = new BooleanSetting("morphe_music_listenbrainz_enabled", FALSE, true);
+    public static final StringSetting LISTENBRAINZ_BASE_URL = new StringSetting("morphe_music_listenbrainz_base_url", "https://api.listenbrainz.org/", parent(LISTENBRAINZ_SCROBBLING));
     public static final StringSetting LISTENBRAINZ_USER_TOKEN = new StringSetting("morphe_music_listenbrainz_token", "", false, parent(LISTENBRAINZ_SCROBBLING));
     public static final BooleanSetting LISTENBRAINZ_NOW_PLAYING = new BooleanSetting("morphe_music_listenbrainz_now_playing", FALSE, true, parent(LISTENBRAINZ_SCROBBLING));
     public static final IntegerSetting LISTENBRAINZ_MIN_SONG_DURATION = new IntegerSetting("morphe_music_listenbrainz_min_song_duration", 30, true, parent(LISTENBRAINZ_SCROBBLING));
     public static final IntegerSetting LISTENBRAINZ_DELAY_PERCENT = new IntegerSetting("morphe_music_listenbrainz_delay_percent", 50, true, parent(LISTENBRAINZ_SCROBBLING));
     public static final IntegerSetting LISTENBRAINZ_DELAY_SECONDS = new IntegerSetting("morphe_music_listenbrainz_delay_seconds", 180, true, parent(LISTENBRAINZ_SCROBBLING));
     public static final BooleanSetting LASTFM_SCROBBLING = new BooleanSetting("morphe_music_lastfm_enabled", FALSE, true);
+    public static final StringSetting LASTFM_BASE_URL = new StringSetting("morphe_music_lastfm_base_url", "https://ws.audioscrobbler.com/2.0/", parent(LASTFM_SCROBBLING));
+    public static final StringSetting LASTFM_API_KEY = new StringSetting("morphe_music_lastfm_api_key", "986d00852eea80eda8b2930e0abf5c46", false, parent(LASTFM_SCROBBLING));
+    public static final StringSetting LASTFM_API_SECRET = new StringSetting("morphe_music_lastfm_api_secret", "1d802c749ccec53103400582fcaebd01", false, parent(LASTFM_SCROBBLING));
     public static final StringSetting LASTFM_SESSION_KEY = new StringSetting("morphe_music_lastfm_session_key", "", false, parent(LASTFM_SCROBBLING));
     public static final StringSetting LASTFM_USERNAME = new StringSetting("morphe_music_lastfm_username", "", false, parent(LASTFM_SCROBBLING));
     public static final BooleanSetting LASTFM_NOW_PLAYING = new BooleanSetting("morphe_music_lastfm_now_playing", FALSE, true, parent(LASTFM_SCROBBLING));
@@ -172,6 +176,7 @@ public class Settings extends SharedYouTubeSettings {
     public static final StringSetting SCROBBLING_CUSTOM_REGEX = new StringSetting("morphe_music_scrobbling_custom_regex", "", true, parentsAll(parent(SCROBBLING_METADATA_CLEANUP), parentsAny(LISTENBRAINZ_SCROBBLING, LASTFM_SCROBBLING)));
     public static final BooleanSetting SCROBBLING_PARSE_TITLE = new BooleanSetting("morphe_music_scrobbling_parse_title", FALSE, true, parentsAny(LISTENBRAINZ_SCROBBLING, LASTFM_SCROBBLING));
     public static final BooleanSetting SCROBBLING_GUESS_ALBUM = new BooleanSetting("morphe_music_scrobbling_guess_album", FALSE, true, parentsAny(LISTENBRAINZ_SCROBBLING, LASTFM_SCROBBLING));
+    public static final StringSetting SCROBBLING_QUEUE = new StringSetting("morphe_music_scrobbling_queue", "[]", false);
 
     // Lyrics
     public static final BooleanSetting LYRICS_ENABLED = new BooleanSetting("morphe_music_lyrics_enabled", FALSE, true);

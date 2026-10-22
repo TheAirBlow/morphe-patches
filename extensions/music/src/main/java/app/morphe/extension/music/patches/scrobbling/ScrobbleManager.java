@@ -308,6 +308,8 @@ public class ScrobbleManager {
         songStartedAtSeconds = System.currentTimeMillis() / 1000;
         songStarted = true;
 
+        runOnBackgroundThread(ScrobbleQueue::flush);
+
         // ListenBrainz
         if (Settings.LISTENBRAINZ_SCROBBLING.get()) {
             startListenBrainzTimer();

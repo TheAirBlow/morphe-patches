@@ -22,6 +22,7 @@ import app.morphe.patches.shared.layout.returnyoutubedislike.EndpointServiceName
 import app.morphe.patches.shared.layout.returnyoutubedislike.likeEndpointParserFingerprint
 import app.morphe.patches.shared.layout.returnyoutubedislike.requestParameterCheckFingerprint
 import app.morphe.patches.shared.MediaSessionSetPlaybackStateFingerprint
+import app.morphe.patches.shared.misc.settings.preference.InputType
 import app.morphe.patches.shared.misc.settings.preference.NonInteractivePreference
 import app.morphe.patches.shared.misc.settings.preference.PreferenceCategory
 import app.morphe.patches.shared.misc.settings.preference.PreferenceScreenPreference.Sorting
@@ -57,6 +58,7 @@ val scrobblingPatch = bytecodePatch(
                         key = "morphe_music_listenbrainz_enabled",
                         titleKey = "morphe_music_scrobbling_enabled_title"
                     ),
+                    TextPreference("morphe_music_listenbrainz_base_url"),
                     NonInteractivePreference(
                         key = "morphe_music_listenbrainz_token",
                         titleKey = "morphe_music_listenbrainz_token_title",
@@ -98,6 +100,12 @@ val scrobblingPatch = bytecodePatch(
                     SwitchPreference(
                         key = "morphe_music_lastfm_enabled",
                         titleKey = "morphe_music_scrobbling_enabled_title"
+                    ),
+                    TextPreference("morphe_music_lastfm_base_url"),
+                    TextPreference("morphe_music_lastfm_api_key"),
+                    TextPreference(
+                        key = "morphe_music_lastfm_api_secret",
+                        inputType = InputType.TEXT_PASSWORD
                     ),
                     NonInteractivePreference(
                         key = "morphe_music_lastfm_session_key",
@@ -143,6 +151,13 @@ val scrobblingPatch = bytecodePatch(
                     SwitchPreference("morphe_music_scrobbling_parse_title", summary = true),
                     SwitchPreference("morphe_music_scrobbling_guess_album", summary = true)
                 )
+            ),
+            NonInteractivePreference(
+                key = "morphe_music_scrobbling_queue",
+                titleKey = "morphe_music_scrobbling_queue_title",
+                summaryKey = null,
+                tag = "app.morphe.extension.music.settings.preference.ScrobbleQueuePreference",
+                selectable = true
             ),
             NonInteractivePreference(
                 key = "morphe_music_scrobbling_about",

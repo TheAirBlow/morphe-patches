@@ -294,6 +294,8 @@ YouTube Music 8.x — crossfade only runs on 9.x and newer"</string>
     <string name="morphe_music_scrobbling_delay_seconds_title">Scrobble delay seconds</string>
     <!-- 'scrobble' must be kept untranslated -->
     <string name="morphe_music_scrobbling_delay_seconds_summary">Trigger scrobble after listening for this many seconds</string>
+    <string name="morphe_music_listenbrainz_base_url_title">Server URL</string>
+    <string name="morphe_music_listenbrainz_base_url_summary">The ListenBrainz-compatible server to scrobble to</string>
     <string name="morphe_music_listenbrainz_token_title">ListenBrainz Account</string>
     <string name="morphe_music_listenbrainz_token_summary_logged_in">Logged in. Tap to manage account</string>
     <!-- 'scrobbling' must be kept untranslated -->
@@ -312,6 +314,12 @@ YouTube Music 8.x — crossfade only runs on 9.x and newer"</string>
     <string name="morphe_music_listenbrainz_token_toast_invalid_warning">Warning: Saved token is invalid!</string>
 
     <string name="morphe_music_lastfm_title" translatable="false">Last.fm</string>
+    <string name="morphe_music_lastfm_base_url_title">Server URL</string>
+    <string name="morphe_music_lastfm_base_url_summary">The Last.fm-compatible server to scrobble to (e.g. Libre.fm)</string>
+    <string name="morphe_music_lastfm_api_key_title">API key</string>
+    <string name="morphe_music_lastfm_api_key_summary">Only needed when using a custom server. Change together with the API secret</string>
+    <string name="morphe_music_lastfm_api_secret_title">API secret</string>
+    <string name="morphe_music_lastfm_api_secret_summary">Only needed when using a custom server. Change together with the API key</string>
     <string name="morphe_music_lastfm_love_on_like_title">Love liked tracks</string>
     <string name="morphe_music_lastfm_love_on_like_summary">Automatically love tracks on Last.fm when you like them on YouTube Music (and remove love when unliked or disliked)</string>
     <string name="morphe_music_lastfm_token_title">Last.fm Account</string>
@@ -336,6 +344,18 @@ YouTube Music 8.x — crossfade only runs on 9.x and newer"</string>
     <string name="morphe_music_scrobbling_parse_title_summary">Extract artist and track name from the video title using \" - \" separator. Useful for reuploaded content where the channel name may be used as the artist.</string>
     <string name="morphe_music_scrobbling_guess_album_title">Fill in missing album</string>
     <string name="morphe_music_scrobbling_guess_album_summary">When the music does not include an album, look it up on Last.fm so your scrobble is complete</string>
+
+    <!-- 'scrobble' must be kept untranslated -->
+    <string name="morphe_music_scrobbling_queue_title">Queued scrobbles</string>
+    <!-- 'scrobbled' must be kept untranslated -->
+    <string name="morphe_music_scrobbling_queue_summary_empty">Nothing queued. Scrobbles that fail to send (e.g. while offline) are queued here and retried automatically</string>
+    <!-- 'scrobbles' must be kept untranslated -->
+    <string name="morphe_music_scrobbling_queue_summary">%d scrobbles waiting to be sent. Tap to clear</string>
+    <string name="morphe_music_scrobbling_queue_clear_title">Clear queue?</string>
+    <!-- 'scrobbles' must be kept untranslated -->
+    <string name="morphe_music_scrobbling_queue_clear_message">%d queued scrobbles will be discarded and won\'t be sent</string>
+    <string name="morphe_music_scrobbling_queue_clear_confirm">Clear</string>
+    <string name="morphe_music_scrobbling_queue_cleared_toast">Queue cleared</string>
 
     <!-- 'scrobbling' must be kept untranslated -->
     <string name="morphe_music_scrobbling_about_title">About scrobbling</string>
